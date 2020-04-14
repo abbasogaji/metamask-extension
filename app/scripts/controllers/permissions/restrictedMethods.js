@@ -9,7 +9,11 @@ export default function getRestrictedMethods ({ getIdentities, getKeyringAccount
             const identities = getIdentities()
             res.result = accounts
               .sort((firstAddress, secondAddress) => {
-                if (identities[firstAddress].lastSelected === identities[secondAddress].lastSelected) {
+                if (!identities[firstAddress]) {
+                  throw new Error(`Missing identity for address ${firstAddress}`)
+                } else if (!identities[secondAddress]) {
+                  throw new Error(`Missing identity for address ${secondAddress}`)
+                } else if (identities[firstAddress].lastSelected === identities[secondAddress].lastSelected) {
                   return 0
                 } else if (identities[firstAddress].lastSelected === undefined) {
                   return 1

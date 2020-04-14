@@ -576,7 +576,6 @@ export default class MetamaskController extends EventEmitter {
       getApprovedAccounts: nodeify(permissionsController.getAccounts.bind(permissionsController)),
       rejectPermissionsRequest: nodeify(permissionsController.rejectPermissionsRequest, permissionsController),
       removePermissionsFor: permissionsController.removePermissionsFor.bind(permissionsController),
-      updatePermittedAccounts: nodeify(permissionsController.updatePermittedAccounts, permissionsController),
       legacyExposeAccounts: nodeify(permissionsController.legacyExposeAccounts, permissionsController),
       handleNewAccountSelected: nodeify(this.handleNewAccountSelected, this),
 

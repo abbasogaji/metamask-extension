@@ -317,14 +317,6 @@ export const getters = deepFreeze({
       },
     },
 
-    updatePermittedAccounts: {
-      invalidOrigin: () => {
-        return {
-          message: 'No such permission exists for the given domain.',
-        }
-      },
-    },
-
     legacyExposeAccounts: {
       badOrigin: () => {
         return {

@@ -287,31 +287,6 @@ export class PermissionsController {
   }
 
   /**
-   * Update the accounts exposed to the given origin. Changes the eth_accounts
-   * permissions and emits accountsChanged.
-   * At least one account must be exposed. If no accounts are to be exposed, the
-   * eth_accounts permissions should be removed completely.
-   *
-   * Throws error if the update fails.
-   *
-   * @param {string} origin - The origin to change the exposed accounts for.
-   * @param {string[]} accounts - The new account(s) to expose.
-   */
-  async updatePermittedAccounts (origin, accounts) {
-
-    await this.validatePermittedAccounts(accounts)
-
-    this.permissions.updateCaveatFor(
-      origin, 'eth_accounts', CAVEAT_NAMES.exposedAccounts, accounts
-    )
-
-    this.notifyDomain(origin, {
-      method: NOTIFICATION_NAMES.accountsChanged,
-      result: accounts,
-    })
-  }
-
-  /**
    * Finalizes a permissions request. Throws if request validation fails.
    * Clones the passed-in parameters to prevent inadvertent modification.
    * Sets (adds or replaces) caveats for the following permissions:
@@ -439,6 +414,12 @@ export class PermissionsController {
 
     const permittedAccounts = await this.getAccounts(origin)
 
+    const oldPermittedAccounts = this.permissions
+      .getPermission(origin, 'eth_accounts')
+      ?.caveats
+      ?.find((caveat) => caveat.name === CAVEAT_NAMES.exposedAccounts)
+      ?.value
+
     if (
       typeof origin !== 'string' || !origin.length ||
       typeof account !== 'string' || !account.length
@@ -447,21 +428,24 @@ export class PermissionsController {
     }
 
     // do nothing if the account is not permitted for the origin, or
-    // if it's already first in the array of permitted accounts
+    // if it's already first in the array of permitted accounts, or
+    // if the given account isn't the current selected account anymore
     if (
       !permittedAccounts.includes(account) ||
-      permittedAccounts[0] === account
+      oldPermittedAccounts[0] === account ||
+      permittedAccounts[0] !== account
     ) {
       return
     }
 
-    const newPermittedAccounts = [account].concat(
-      permittedAccounts.filter((_account) => _account !== account)
+    this.permissions.updateCaveatFor(
+      origin, 'eth_accounts', CAVEAT_NAMES.exposedAccounts, permittedAccounts
     )
 
-    // update permitted accounts to ensure that accounts are returned
-    // in the same order every time
-    await this.updatePermittedAccounts(origin, newPermittedAccounts)
+    this.notifyDomain(origin, {
+      method: NOTIFICATION_NAMES.accountsChanged,
+      result: permittedAccounts,
+    })
   }
 
   /**

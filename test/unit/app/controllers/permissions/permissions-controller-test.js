@@ -459,115 +459,6 @@ describe('permissions controller', function () {
     })
   })
 
-  describe('updatePermittedAccounts', function () {
-
-    let permController, notifications
-
-    beforeEach(function () {
-      notifications = initNotifications()
-      permController = initPermController(notifications)
-      grantPermissions(
-        permController, ORIGINS.a,
-        PERMS.finalizedRequests.eth_accounts(ACCOUNT_ARRAYS.a)
-      )
-      grantPermissions(
-        permController, ORIGINS.b,
-        PERMS.finalizedRequests.eth_accounts(ACCOUNT_ARRAYS.b)
-      )
-    })
-
-    it('throws on invalid accounts', async function () {
-
-      await assert.rejects(
-        permController.updatePermittedAccounts(ORIGINS.a, {}),
-        ERRORS.validatePermittedAccounts.invalidParam(),
-        'should throw on non-array accounts param'
-      )
-
-      await assert.rejects(
-        permController.updatePermittedAccounts(ORIGINS.a, []),
-        ERRORS.validatePermittedAccounts.invalidParam(),
-        'should throw on empty array accounts param'
-      )
-
-      await assert.rejects(
-        permController.updatePermittedAccounts(ORIGINS.a, [DUMMY_ACCOUNT]),
-        ERRORS.validatePermittedAccounts.nonKeyringAccount(DUMMY_ACCOUNT),
-        'should throw on non-keyring account'
-      )
-    })
-
-    it('throws if origin invalid or lacks eth_accounts permission', async function () {
-
-      await assert.rejects(
-        permController.updatePermittedAccounts(false, ACCOUNT_ARRAYS.a),
-        ERRORS.updatePermittedAccounts.invalidOrigin(),
-        'should throw on invalid origin'
-      )
-
-      await assert.rejects(
-        permController.updatePermittedAccounts(ORIGINS.c, ACCOUNT_ARRAYS.a),
-        ERRORS.updatePermittedAccounts.invalidOrigin(),
-        'should throw on origin without eth_accounts permission'
-      )
-    })
-
-    it('successfully updates permitted accounts', async function () {
-
-      await permController.updatePermittedAccounts(ORIGINS.a, ACCOUNT_ARRAYS.b)
-      await permController.updatePermittedAccounts(ORIGINS.b, ACCOUNT_ARRAYS.c)
-
-      let aAccounts = await permController.getAccounts(ORIGINS.a)
-      let bAccounts = await permController.getAccounts(ORIGINS.b)
-
-      assert.deepEqual(
-        aAccounts, ACCOUNT_ARRAYS.b,
-        'first origin should have correct accounts'
-      )
-      assert.deepEqual(
-        bAccounts, ACCOUNT_ARRAYS.c,
-        'first origin should have correct accounts'
-      )
-
-      assert.deepEqual(
-        notifications[ORIGINS.a][0],
-        NOTIFICATIONS.newAccounts(ACCOUNT_ARRAYS.b),
-        'first origin should have correct notification'
-      )
-      assert.deepEqual(
-        notifications[ORIGINS.b][0],
-        NOTIFICATIONS.newAccounts(ACCOUNT_ARRAYS.c),
-        'second origin should have correct notification'
-      )
-
-      await permController.updatePermittedAccounts(ORIGINS.a, ACCOUNT_ARRAYS.c)
-      await permController.updatePermittedAccounts(ORIGINS.b, ACCOUNT_ARRAYS.a)
-
-      aAccounts = await permController.getAccounts(ORIGINS.a)
-      bAccounts = await permController.getAccounts(ORIGINS.b)
-
-      assert.deepEqual(
-        aAccounts, ACCOUNT_ARRAYS.c,
-        'first origin should have correct accounts'
-      )
-      assert.deepEqual(
-        bAccounts, ACCOUNT_ARRAYS.a,
-        'first origin should have correct accounts'
-      )
-
-      assert.deepEqual(
-        notifications[ORIGINS.a][1],
-        NOTIFICATIONS.newAccounts(ACCOUNT_ARRAYS.c),
-        'first origin should have correct notification'
-      )
-      assert.deepEqual(
-        notifications[ORIGINS.b][1],
-        NOTIFICATIONS.newAccounts(ACCOUNT_ARRAYS.a),
-        'second origin should have correct notification'
-      )
-    })
-  })
-
   describe('finalizePermissionsRequest', function () {
 
     let permController
@@ -805,8 +696,43 @@ describe('permissions controller', function () {
       )
     })
 
-    it('emits notification if selected account not first in array', async function () {
+    it('does nothing if account is no longer the selected account', async function () {
+      const permController = new PermissionsController({
+        ...getPermControllerOpts(),
+        getKeyringAccounts: async () => [...ACCOUNT_ARRAYS.a],
+        notifyDomain: getNotifyDomain(notifications),
+        notifyAllDomains: getNotifyAllDomains(notifications),
+      })
+      grantPermissions(
+        permController, ORIGINS.a,
+        PERMS.finalizedRequests.eth_accounts(ACCOUNT_ARRAYS.a)
+      )
+      await permController.handleNewAccountSelected(
+        ORIGINS.a, ACCOUNT_ARRAYS.a[1]
+      )
 
+      assert.deepEqual(
+        notifications[ORIGINS.a], [],
+        'should not have emitted notification'
+      )
+    })
+
+    it('emits notification if selected account not first in array', async function () {
+      const permController = new PermissionsController({
+        ...getPermControllerOpts(),
+        getIdentities: () => {
+          return {
+            [ACCOUNT_ARRAYS.a[0]]: {},
+            [ACCOUNT_ARRAYS.a[1]]: { lastSelected: 1000 },
+          }
+        },
+        notifyDomain: getNotifyDomain(notifications),
+        notifyAllDomains: getNotifyAllDomains(notifications),
+      })
+      grantPermissions(
+        permController, ORIGINS.a,
+        PERMS.finalizedRequests.eth_accounts(ACCOUNT_ARRAYS.a)
+      )
       await permController.handleNewAccountSelected(
         ORIGINS.a, ACCOUNT_ARRAYS.a[1]
       )
